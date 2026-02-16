@@ -210,52 +210,6 @@ Generates a comprehensive text report with:
 
 ---
 
-## Expected Results
-
-### Typical Statistics (will vary based on actual data):
-- **Mean Processing Time:** 5-15 days
-- **Median Processing Time:** 3-10 days
-- **Certification Rate:** 90-98%
-- **Top States:** California, Texas, New York, New Jersey, Illinois
-- **Peak Months:** March-April (H-1B cap season)
-
----
-
-## Troubleshooting
-
-### Common Issues:
-
-1. **"File not found" error:**
-   - Ensure you've downloaded the data file
-   - Verify the DATA_PATH is correct
-   - Check file name matches exactly
-
-2. **Memory issues with large files:**
-   - The script is optimized for datasets up to several GB
-   - Consider using chunk processing for very large files
-
-3. **Missing packages:**
-   ```bash
-   pip install --upgrade pandas numpy matplotlib seaborn openpyxl
-   ```
-
-4. **Date parsing errors:**
-   - The script uses `errors='coerce'` to handle invalid dates
-   - Check SUMMARY_REPORT.txt for data quality metrics
-
----
-
-## Next Steps (Milestone 2)
-
-After completing Milestone 1:
-1. Review all visualizations in `eda_outputs/`
-2. Read the SUMMARY_REPORT.txt for key insights
-3. Use `cleaned_data.csv` for predictive modeling
-4. Consider additional feature engineering based on EDA findings
-5. Prepare for regression model development
-
----
-
 ## File Structure
 ```
 project/
@@ -275,31 +229,7 @@ project/
     ├── cleaned_data.pkl
     └── SUMMARY_REPORT.txt
 ```
-
 ---
-
-## Tips for Success
-
-1. **Start Small:** Test with a subset of data first if the file is very large
-2. **Review Outputs:** Carefully examine all visualizations for insights
-3. **Document Findings:** Note any unusual patterns for discussion
-4. **Data Quality:** Pay attention to missing values and outliers
-5. **Feature Selection:** Use correlation matrix to identify important features
-
----
-
-## Questions or Issues?
-
-For any questions about the analysis:
-1. Check the inline code comments
-2. Review the SUMMARY_REPORT.txt
-3. Examine individual visualization outputs
-4. Consult the LCA Record Layout PDF for field definitions
-
----
-
-## Author
-Internship Project - February 2026
 
 ## Data Source
 U.S. Department of Labor - Office of Foreign Labor Certification
