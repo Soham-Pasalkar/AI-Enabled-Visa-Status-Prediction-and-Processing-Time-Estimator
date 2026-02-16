@@ -29,7 +29,7 @@ pip install pandas numpy matplotlib seaborn openpyxl
 ```
 
 ### 2. Download Data
-1. Visit: https://www.dol.gov/agencies/eta/foreign-labor/performance
+1. Visit: https://www.dol.gov/agencies/eta/foreign-labor/performance (https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY2026_Q1.xlsx)
 2. Navigate to "OFLC Programs and Disclosures"
 3. Download the LCA Disclosure Data (Excel format) for FY2026 Q1
 4. Save as: `LCA_Disclosure_Data_FY2026_Q1.xlsx`
