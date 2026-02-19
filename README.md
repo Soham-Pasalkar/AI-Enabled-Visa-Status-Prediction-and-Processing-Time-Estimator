@@ -1,4 +1,4 @@
-# H-1B Visa Processing Time Analysis - Milestone 1
+# H-1B Visa Processing Time Analysis 
 
 ## AI-Enabled Visa Status Prediction and Processing Time Estimator
 
