@@ -625,9 +625,9 @@ for feat in new_features:
     if feat in df_cleaned.columns:
         print(f"  ✓ {feat}")
 
-# %% 19. ADVANCED ANALYSIS - Statistical Tests (OPTIONAL)
+# %% 19. ADVANCED ANALYSIS - Statistical Tests 
 print("\n" + "=" * 80)
-print("STEP 10: ADVANCED STATISTICAL ANALYSIS (OPTIONAL)")
+print("STEP 10: ADVANCED STATISTICAL ANALYSIS ")
 print("=" * 80)
 
 # Test 1: Full-time vs Part-time processing time difference
@@ -667,7 +667,7 @@ if 'WAGE_RATE_OF_PAY_FROM' in df_cleaned.columns:
     print("\n[Test 3] Correlation: Wage vs Processing Time")
     valid_data = df_cleaned[['WAGE_RATE_OF_PAY_FROM', 'PROCESSING_DAYS']].dropna()
     
-    if len(valid_data) > 30:  # Need sufficient data
+    if len(valid_data) > 30:  
         correlation, p_value = stats.pearsonr(
             valid_data['WAGE_RATE_OF_PAY_FROM'],
             valid_data['PROCESSING_DAYS']
@@ -689,7 +689,7 @@ if 'WAGE_RATE_OF_PAY_FROM' in df_cleaned.columns:
         
         print(f"  Interpretation: {interpretation}")
 
-# %% 20. TOP EMPLOYERS ANALYSIS (OPTIONAL)
+# %% 20. TOP EMPLOYERS ANALYSIS 
 print("\n" + "=" * 80)
 print("TOP 20 EMPLOYERS ANALYSIS")
 print("=" * 80)
@@ -717,7 +717,7 @@ if 'EMPLOYER_NAME' in df_cleaned.columns:
     employer_df.to_csv('eda_outputs/top_employers_analysis.csv', index=False)
     print("\n✓ Saved: eda_outputs/top_employers_analysis.csv")
 
-# %% 21. TOP OCCUPATIONS ANALYSIS (OPTIONAL)
+# %% 21. TOP OCCUPATIONS ANALYSIS 
 print("\n" + "=" * 80)
 print("TOP 15 OCCUPATIONS ANALYSIS")
 print("=" * 80)
@@ -748,4 +748,237 @@ if 'SOC_TITLE' in df_cleaned.columns:
     # Save to CSV
     occ_df.to_csv('eda_outputs/top_occupations_analysis.csv', index=False)
     print("\n✓ Saved: eda_outputs/top_occupations_analysis.csv")
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------------
+# %% 22. MILESTONE 2 
+
+print("\n" + "=" * 80)
+print("MILESTONE 2: FEATURE ENGINEERING & CLEAN OUTPUT")
+print("=" * 80)
+
+MILESTONE2_DIR = os.path.join("eda_outputs", "milestone2")
+
+os.makedirs(MILESTONE2_DIR, exist_ok=True)
+
+print(f"✓ All Milestone 2 files will be saved in: {MILESTONE2_DIR}")
+
+# %% 23. COPY DATA FOR FEATURE ENGINEERING
+
+df_features = df_cleaned.copy()
+
+print("\nWorking dataset copied")
+
+# %% 24. STATE FEATURES
+
+print("\nCreating state features...")
+
+state_stats = df_features.groupby('WORKSITE_STATE').agg({
+
+    'PROCESSING_DAYS': ['mean', 'median', 'count']
+
+}).round(2)
+
+state_stats.columns = [
+
+    'STATE_AVG_PROC',
+    'STATE_MEDIAN_PROC',
+    'STATE_APP_COUNT'
+
+]
+
+state_stats = state_stats.reset_index()
+
+df_features = df_features.merge(
+
+    state_stats,
+    on='WORKSITE_STATE',
+    how='left'
+
+)
+
+state_stats.to_csv(
+
+    os.path.join(MILESTONE2_DIR, "state_features.csv"),
+    index=False
+
+)
+
+# %% 25. EMPLOYER FEATURES
+
+print("Creating employer features...")
+
+emp_stats = df_features.groupby('EMPLOYER_NAME').agg({
+
+    'PROCESSING_DAYS': ['mean', 'count']
+
+}).round(2)
+
+emp_stats.columns = [
+
+    'EMPLOYER_AVG_PROC',
+    'EMPLOYER_APP_COUNT'
+
+]
+
+emp_stats = emp_stats.reset_index()
+
+df_features = df_features.merge(
+
+    emp_stats,
+    on='EMPLOYER_NAME',
+    how='left'
+
+)
+
+emp_stats.to_csv(
+
+    os.path.join(MILESTONE2_DIR, "employer_features.csv"),
+    index=False
+
+)
+
+# %% 26. SOC FEATURES 
+
+print("Creating SOC features...")
+
+soc_stats = df_features.groupby('SOC_CODE').agg({
+
+    'PROCESSING_DAYS': ['mean', 'count']
+
+}).round(2)
+
+soc_stats.columns = [
+
+    'SOC_AVG_PROC',
+    'SOC_APP_COUNT'
+
+]
+
+soc_stats = soc_stats.reset_index()
+
+df_features = df_features.merge(
+
+    soc_stats,
+    on='SOC_CODE',
+    how='left'
+
+)
+
+
+# SAFE popularity creation
+
+try:
+
+    df_features['SOC_POPULARITY'] = pd.qcut(
+
+        df_features['SOC_APP_COUNT'],
+        q=4,
+        duplicates='drop'
+
+    )
+
+    bins = df_features['SOC_POPULARITY'].cat.categories
+
+    labels = [
+
+        'Rare',
+        'Uncommon',
+        'Common',
+        'Very Common'
+
+    ][:len(bins)]
+
+    df_features['SOC_POPULARITY'] = (
+
+        df_features['SOC_POPULARITY']
+        .cat.rename_categories(labels)
+
+    )
+
+except:
+
+    df_features['SOC_POPULARITY'] = "Common"
+
+
+soc_stats.to_csv(
+
+    os.path.join(MILESTONE2_DIR, "soc_features.csv"),
+    index=False
+
+)
+
+
+# %% 27. SEASONAL FEATURES
+
+print("Creating seasonal features...")
+
+df_features['IS_CAP_SEASON'] = (
+
+    df_features['RECEIVED_MONTH'] == 4
+
+).astype(int)
+
+df_features['MONTH_SIN'] = np.sin(
+
+    2 * np.pi * df_features['RECEIVED_MONTH'] / 12
+
+)
+
+df_features['MONTH_COS'] = np.cos(
+
+    2 * np.pi * df_features['RECEIVED_MONTH'] / 12
+
+)
+
+
+# %% 28. WAGE FEATURES
+
+print("Creating wage features...")
+
+df_features['LOG_WAGE'] = np.log1p(
+
+    df_features['WAGE_RATE_OF_PAY_FROM']
+
+)
+
+df_features['WAGE_PERCENTILE'] = (
+
+    df_features.groupby('WORKSITE_STATE')
+
+    ['WAGE_RATE_OF_PAY_FROM']
+
+    .rank(pct=True)
+
+)
+
+
+# %% 29. SAVE FINAL FEATURE DATASET
+
+print("\nSaving final feature dataset...")
+
+df_features.to_csv(
+
+    os.path.join(MILESTONE2_DIR, "feature_engineered_data.csv"),
+
+    index=False
+
+)
+
+
+# %% DONE
+
+print("\n" + "=" * 80)
+
+print("✓ MILESTONE 2 COMPLETE")
+
+print(f"✓ Clean folder: {MILESTONE2_DIR}")
+
+print("Files created:")
+
+print(" - feature_engineered_data.csv")
+print(" - state_features.csv")
+print(" - employer_features.csv")
+print(" - soc_features.csv")
+
+print("=" * 80)
 
