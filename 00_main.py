@@ -982,3 +982,264 @@ print(" - soc_features.csv")
 
 print("=" * 80)
 
+# --------------------------------------------------------------------------------------------
+# MILESTONE 3: PREDICTIVE MODELING
+# --------------------------------------------------------------------------------------------
+
+# %% 30. MILESTONE 3 SETUP
+
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import joblib
+
+MODEL_RESULTS_DIR = "model_results"
+os.makedirs(MODEL_RESULTS_DIR, exist_ok=True)
+print(f"\n✓ Output folder: {MODEL_RESULTS_DIR}/")
+
+
+# %% 31. FEATURE PREP & TRAIN/TEST SPLIT
+
+df_model = df_features.copy()
+
+feature_cols = [
+    'RECEIVED_MONTH', 'RECEIVED_QUARTER', 'RECEIVED_DAY_OF_WEEK',
+    'IS_CAP_SEASON', 'MONTH_SIN', 'MONTH_COS',
+    'STATE_AVG_PROC', 'STATE_MEDIAN_PROC', 'STATE_APP_COUNT',
+    'EMPLOYER_AVG_PROC', 'EMPLOYER_APP_COUNT',
+    'SOC_AVG_PROC', 'SOC_APP_COUNT',
+    'LOG_WAGE', 'WAGE_PERCENTILE',
+    'EMPLOYMENT_DURATION_DAYS',
+    'NEW_EMPLOYMENT', 'CONTINUED_EMPLOYMENT', 'CHANGE_EMPLOYER',
+    'SEASON', 'FULL_TIME_POSITION', 'VISA_CLASS',
+]
+
+feature_cols = [f for f in feature_cols if f in df_model.columns]
+
+cat_cols = ['SEASON', 'FULL_TIME_POSITION', 'VISA_CLASS']
+label_encoders = {}
+
+for col in cat_cols:
+    if col in df_model.columns:
+        le = LabelEncoder()
+        df_model[col] = df_model[col].fillna('Unknown')
+        df_model[col] = le.fit_transform(df_model[col].astype(str))
+        label_encoders[col] = le
+
+df_model = df_model[feature_cols + ['PROCESSING_DAYS']].dropna()
+
+X = df_model[feature_cols]
+y = df_model['PROCESSING_DAYS']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+scaler = StandardScaler()
+X_train_sc = scaler.fit_transform(X_train)
+X_test_sc  = scaler.transform(X_test)
+
+print(f"Train: {len(X_train):,}  |  Test: {len(X_test):,}  |  Features: {len(feature_cols)}")
+
+joblib.dump(label_encoders, os.path.join(MODEL_RESULTS_DIR, 'label_encoders.pkl'))
+joblib.dump(scaler,         os.path.join(MODEL_RESULTS_DIR, 'scaler.pkl'))
+joblib.dump(feature_cols,   os.path.join(MODEL_RESULTS_DIR, 'feature_list.pkl'))
+
+# %% 32. TRAIN MODELS
+
+models = {
+    'Linear Regression': (LinearRegression(),                                          True),
+    'Ridge':             (Ridge(alpha=1.0),                                            True),
+    'Random Forest':     (RandomForestRegressor(n_estimators=100, random_state=42),    False),
+    'Gradient Boosting': (GradientBoostingRegressor(n_estimators=100, random_state=42), False),
+}
+
+results = {}
+
+for name, (model, use_scaled) in models.items():
+    Xtr = X_train_sc if use_scaled else X_train
+    Xte = X_test_sc  if use_scaled else X_test
+
+    model.fit(Xtr, y_train)
+    y_pred = model.predict(Xte)
+
+    cv = cross_val_score(model, Xtr, y_train, cv=5, scoring='neg_mean_absolute_error')
+
+    results[name] = {
+        'model':  model,
+        'y_pred': y_pred,
+        'MAE':    round(mean_absolute_error(y_test, y_pred), 3),
+        'RMSE':   round(np.sqrt(mean_squared_error(y_test, y_pred)), 3),
+        'R2':     round(r2_score(y_test, y_pred), 4),
+        'CV_MAE': round(-cv.mean(), 3),
+    }
+    print(f"{name:25s}  MAE={results[name]['MAE']:.3f}  RMSE={results[name]['RMSE']:.3f}  R2={results[name]['R2']:.4f}")
+
+# %% 33. MODEL COMPARISON
+
+comparison_df = pd.DataFrame([
+    {'Model': k, 'MAE': v['MAE'], 'RMSE': v['RMSE'], 'R2': v['R2'], 'CV_MAE': v['CV_MAE']}
+    for k, v in results.items()
+]).sort_values('MAE').reset_index(drop=True)
+
+print("\nModel comparison (sorted by MAE):")
+print(comparison_df.to_string(index=False))
+
+comparison_df.to_csv(os.path.join(MODEL_RESULTS_DIR, 'model_comparison.csv'), index=False)
+
+best_model_name = comparison_df.iloc[0]['Model']
+print(f"\nBest model: {best_model_name}")
+
+fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+colors = ['#4C72B0', '#55A868', '#C44E52', '#8172B2']
+names  = comparison_df['Model'].tolist()
+
+for ax, metric in zip(axes, ['MAE', 'RMSE', 'R2']):
+    ax.barh(names, comparison_df[metric], color=colors[:len(names)], edgecolor='black', alpha=0.85)
+    ax.set_title(metric)
+    ax.invert_yaxis()
+
+plt.suptitle('Model Comparison', fontweight='bold')
+plt.tight_layout()
+plt.savefig(os.path.join(MODEL_RESULTS_DIR, '1_model_comparison.png'), dpi=300, bbox_inches='tight')
+plt.show()
+
+# %% 34. ACTUAL VS PREDICTED
+
+fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+axes = axes.flatten()
+
+for i, name in enumerate(comparison_df['Model'].tolist()):
+    y_pred = results[name]['y_pred']
+    lims   = [min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())]
+
+    axes[i].scatter(y_test, y_pred, alpha=0.25, s=8, color='steelblue')
+    axes[i].plot(lims, lims, 'r--', linewidth=1.5)
+    axes[i].set_title(f"{name}  (MAE={results[name]['MAE']:.2f}, R2={results[name]['R2']:.4f})")
+    axes[i].set_xlabel('Actual')
+    axes[i].set_ylabel('Predicted')
+
+plt.suptitle('Actual vs Predicted Processing Days', fontweight='bold')
+plt.tight_layout()
+plt.savefig(os.path.join(MODEL_RESULTS_DIR, '2_actual_vs_predicted.png'), dpi=300, bbox_inches='tight')
+plt.show()
+
+# %% 35. RESIDUAL ANALYSIS
+
+best_preds = results[best_model_name]['y_pred']
+residuals  = y_test - best_preds
+
+fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+
+axes[0].scatter(best_preds, residuals, alpha=0.25, s=8, color='darkorange')
+axes[0].axhline(0, color='red', linestyle='--')
+axes[0].set_xlabel('Predicted')
+axes[0].set_ylabel('Residual')
+axes[0].set_title('Residuals vs Predicted')
+
+axes[1].hist(residuals, bins=50, color='steelblue', edgecolor='black', alpha=0.8)
+axes[1].axvline(0, color='red', linestyle='--')
+axes[1].set_title('Residual Distribution')
+
+stats.probplot(residuals, dist='norm', plot=axes[2])
+axes[2].set_title('Q-Q Plot')
+
+plt.suptitle(f'Residual Analysis — {best_model_name}', fontweight='bold')
+plt.tight_layout()
+plt.savefig(os.path.join(MODEL_RESULTS_DIR, '3_residual_analysis.png'), dpi=300, bbox_inches='tight')
+plt.show()
+
+# %% 36. FEATURE IMPORTANCE
+
+for name, res in results.items():
+    if not hasattr(res['model'], 'feature_importances_'):
+        continue
+
+    imp_df = pd.DataFrame({'Feature': feature_cols, 'Importance': res['model'].feature_importances_})
+    imp_df = imp_df.sort_values('Importance', ascending=False).head(15)
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.barh(imp_df['Feature'], imp_df['Importance'], color='teal', edgecolor='black', alpha=0.85)
+    ax.invert_yaxis()
+    ax.set_title(f'Feature Importance — {name}', fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(os.path.join(MODEL_RESULTS_DIR, f'4_feature_importance_{name.replace(" ", "_")}.png'),
+                dpi=300, bbox_inches='tight')
+    plt.show()
+
+    imp_df.to_csv(os.path.join(MODEL_RESULTS_DIR, f'feature_importance_{name.replace(" ", "_")}.csv'), index=False)
+
+# %% 37. HYPERPARAMETER TUNING
+
+print("\nTuning Random Forest with GridSearchCV (5-fold CV)...")
+
+param_grid = {
+    'n_estimators':      [100, 200],
+    'max_depth':         [None, 10, 20],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf':  [1, 2],
+}
+
+gs = GridSearchCV(
+    RandomForestRegressor(random_state=42),
+    param_grid, cv=5, scoring='neg_mean_absolute_error', n_jobs=-1, verbose=1
+)
+gs.fit(X_train, y_train)
+
+best_params  = gs.best_params_
+tuned_preds  = gs.best_estimator_.predict(X_test)
+tuned_mae    = round(mean_absolute_error(y_test, tuned_preds), 3)
+tuned_rmse   = round(np.sqrt(mean_squared_error(y_test, tuned_preds)), 3)
+tuned_r2     = round(r2_score(y_test, tuned_preds), 4)
+
+print(f"\nBest params : {best_params}")
+print(f"Tuned MAE   : {tuned_mae}  (baseline: {results['Random Forest']['MAE']})")
+print(f"Tuned RMSE  : {tuned_rmse}")
+print(f"Tuned R2    : {tuned_r2}")
+print(f"MAE gain    : {results['Random Forest']['MAE'] - tuned_mae:.3f} days")
+
+joblib.dump(gs.best_estimator_, os.path.join(MODEL_RESULTS_DIR, 'best_model_tuned.pkl'))
+print(f"Saved: best_model_tuned.pkl")
+
+# %% 38. PREDICTION ENGINE
+
+def predict_processing_time(input_dict):
+    row   = {f: input_dict.get(f, 0) for f in feature_cols}
+    df_in = pd.DataFrame([row])
+
+    for col, le in label_encoders.items():
+        if col in df_in.columns:
+            val = str(df_in[col].iloc[0])
+            df_in[col] = le.transform([val])[0] if val in le.classes_ else 0
+
+    df_in = df_in.fillna(0)
+    point  = float(gs.best_estimator_.predict(df_in)[0])
+    margin = 1.645 * np.std(y_test - tuned_preds)
+
+    return {
+        'estimate':    round(max(point, 1), 1),
+        'lower_bound': round(max(point - margin, 1), 1),
+        'upper_bound': round(point + margin, 1),
+    }
+
+sample = {
+    'RECEIVED_MONTH': 4, 'RECEIVED_QUARTER': 2, 'RECEIVED_DAY_OF_WEEK': 0,
+    'IS_CAP_SEASON': 1,
+    'MONTH_SIN': np.sin(2 * np.pi * 4 / 12),
+    'MONTH_COS': np.cos(2 * np.pi * 4 / 12),
+    'STATE_AVG_PROC':    df_features['STATE_AVG_PROC'].median()    if 'STATE_AVG_PROC' in df_features.columns else 10,
+    'EMPLOYER_AVG_PROC': df_features['EMPLOYER_AVG_PROC'].median() if 'EMPLOYER_AVG_PROC' in df_features.columns else 10,
+    'SOC_AVG_PROC':      df_features['SOC_AVG_PROC'].median()      if 'SOC_AVG_PROC' in df_features.columns else 10,
+    'LOG_WAGE': np.log1p(100000), 'WAGE_PERCENTILE': 0.6,
+    'EMPLOYMENT_DURATION_DAYS': 1095,
+    'SEASON': 'Spring', 'FULL_TIME_POSITION': 'Y', 'VISA_CLASS': 'H-1B',
+}
+
+pred = predict_processing_time(sample)
+print(f"\nSample prediction (April, H-1B, full-time, ~$100k):")
+print(f"  Estimate : {pred['estimate']} days")
+print(f"  90% CI   : {pred['lower_bound']} – {pred['upper_bound']} days")
+
+# %% MILESTONE 3 DONE
+
+print(f"\n✓ Milestone 3 complete. All outputs saved to: {MODEL_RESULTS_DIR}/")
