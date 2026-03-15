@@ -79,12 +79,12 @@ Visa applicants often face long waiting times with very little visibility into h
 
 | Model | MAE | RMSE | R² |
 |---|---|---|---|
-| Linear Regression | — | — | — |
-| Ridge | — | — | — |
-| Random Forest | — | — | — |
-| Gradient Boosting | — | — | — |
+| Linear Regression | 1.229 | 2.262 | 0.9411 |
+| Ridge | 1.229 | 2.262 | 0.9411 |
+| Gradient Boosting | 0.763 | 1.144 | 0.9849 |
+| **Random Forest** ✅ | **0.597** | **1.092** | **0.9863** |
 
-> Results will be updated after final model evaluation.
+Best model: **Random Forest** (tuned) — MAE 0.597 days, R² 0.9864 across 15,151 test records.
 
 ---
 
