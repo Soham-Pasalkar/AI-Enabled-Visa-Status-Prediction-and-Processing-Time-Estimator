@@ -28,9 +28,12 @@ Visa applicants often face long waiting times with very little visibility into h
 
 ```
 ├── 00_main.py                  # Main script (all milestones)
+├── app.py                      # Streamlit web app (Milestone 4)
 ├── eda_outputs/
 │   ├── cleaned_data.csv
 │   ├── SUMMARY_REPORT.txt
+│   ├── top_employers_analysis.csv
+│   ├── top_occupations_analysis.csv
 │   ├── milestone2/
 │   │   ├── feature_engineered_data.csv
 │   │   ├── state_features.csv
@@ -40,6 +43,10 @@ Visa applicants often face long waiting times with very little visibility into h
 ├── model_results/
 │   ├── model_comparison.csv
 │   ├── feature_importance_*.csv
+│   ├── label_encoders.pkl
+│   ├── scaler.pkl
+│   ├── feature_list.pkl
+│   ├── best_model_tuned.pkl
 │   └── *.png                   # Model visualizations
 ├── requirements.txt
 └── README.md
@@ -50,28 +57,33 @@ Visa applicants often face long waiting times with very little visibility into h
 ## Pipeline
 
 ### Milestone 1 — Data Collection & EDA ✅
-- Loaded and cleaned raw LCA disclosure data
+- Loaded and cleaned raw LCA disclosure data (83,120 records, 98 features)
 - Created target variable (`PROCESSING_DAYS = DECISION_DATE - RECEIVED_DATE`)
-- Removed duplicates, invalid statuses, and outliers
-- EDA across case status, visa class, states, monthly trends, and wages
-- Statistical tests (t-test, ANOVA, Pearson correlation)
+- Removed duplicates, invalid statuses, negative/zero/outlier processing times (>365 days)
+- EDA across case status, visa class, top states, monthly trends, and wages
+- Statistical tests: t-test (full-time vs part-time), ANOVA (visa classes), Pearson correlation (wage vs processing time)
+- Top employer and occupation breakdowns saved to CSV
 
 ### Milestone 2 — Feature Engineering ✅
-- State-level processing averages and application counts
-- Employer-level processing history
-- SOC occupation popularity tiers
-- Log-transformed wage and state wage percentile
-- Cyclical seasonal encoding (sin/cos) and H-1B cap season flag
+- State-level processing averages, medians, and application counts
+- Employer-level processing history and application volume
+- SOC occupation popularity tiers (Rare / Uncommon / Common / Very Common) via quartile binning
+- Log-transformed wage and within-state wage percentile ranking
+- Cyclical seasonal encoding (sin/cos on month) and H-1B cap season flag (April)
 
 ### Milestone 3 — Predictive Modeling ✅
-- Trained Linear Regression, Ridge, Random Forest, and Gradient Boosting
-- Evaluated on MAE, RMSE, and R²
-- Hyperparameter tuning on Random Forest via GridSearchCV (5-fold CV)
-- Built a `predict_processing_time()` function that returns a point estimate + 90% confidence interval
+- Trained Linear Regression, Ridge, Random Forest, and Gradient Boosting on 22 engineered features
+- Evaluated on MAE, RMSE, and R² with 5-fold cross-validation
+- Hyperparameter tuning on Random Forest via GridSearchCV (n_estimators, max_depth, min_samples_split, min_samples_leaf)
+- Best tuned model: MAE 0.597 days, R² 0.9864 on 15,151 test records
+- `predict_processing_time()` function returns a point estimate + 90% confidence interval
 
-### Milestone 4 — Deployment 🔲
-- Streamlit web app with prediction interface
-- Connect trained model to frontend input form
+### Milestone 4 — Deployment ✅
+- Streamlit web app (`app.py`) with dark-themed prediction interface
+- Sidebar inputs: worksite state, visa class, filing month, annual wage, position type, occupation
+- Displays point estimate, 90% confidence interval, and delta vs. state average
+- Interactive charts: processing time by filing month and top states by average processing time
+- Loads trained model artifacts from `model_results/` at runtime
 
 ---
 
@@ -91,10 +103,11 @@ Best model: **Random Forest** (tuned) — MAE 0.597 days, R² 0.9864 across 15,1
 ## Tech Stack
 
 - Python 3.14
-- pandas, NumPy
+- pandas, NumPy, SciPy
 - Matplotlib, Seaborn
 - scikit-learn
 - joblib
+- Streamlit
 
 ---
 
@@ -121,9 +134,14 @@ pip install -r requirements.txt
 
 Download `LCA_Disclosure_Data_FY2026_Q1.xlsx` from the DOL website and place it in the project root.
 
-**5. Run**
+**5. Run the pipeline**
 ```bash
 python 00_main.py
+```
+
+**6. Launch the app**
+```bash
+streamlit run app.py
 ```
 
 ---
@@ -142,4 +160,4 @@ GitHub: [github.com/Soham-Pasalkar](https://github.com/Soham-Pasalkar)
 | 1 — Data Collection & EDA | ✅ Complete |
 | 2 — Feature Engineering | ✅ Complete |
 | 3 — Predictive Modeling | ✅ Complete |
-| 4 — Deployment | 🔲 Planned |
+| 4 — Deployment | ✅ Complete |
